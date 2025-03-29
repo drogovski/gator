@@ -1,42 +1,44 @@
 package main
 
 import (
-	"fmt"
+	"log"
 	"os"
 
 	"github.com/drogovski/gator/internal/config"
 )
 
+type state struct {
+	cfg *config.Config
+}
+
 func main() {
 	cfg, err := config.Read()
 	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
+		log.Fatalf("error reading config: %v", err)
 	}
-	st := state{
+	programState := &state{
 		cfg: &cfg,
 	}
 
 	cmds := commands{
-		cmds: map[string]func(*state, command) error{},
+		registeredCommands: map[string]func(*state, command) error{},
 	}
 
 	cmds.register("login", handlerLogin)
 
 	args := os.Args
 	if len(args) < 2 {
-		fmt.Println("too few arguments")
-		os.Exit(1)
+		log.Fatal("Usage: cli <command> [args...]")
+		return
 	}
 
 	cmd := command{
-		name: args[1],
-		args: args[2:],
+		Name: args[1],
+		Args: args[2:],
 	}
 
-	err = cmds.run(&st, cmd)
+	err = cmds.run(programState, cmd)
 	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
+		log.Fatal(err)
 	}
 }
