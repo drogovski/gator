@@ -34,9 +34,7 @@ func handlerRegister(s *state, cmd command) error {
 		return errors.New("you have to provide username as argument")
 	}
 	username := cmd.Args[0]
-	context := context.Background()
-
-	user, err := s.db.CreateUser(context, database.CreateUserParams{
+	user, err := s.db.CreateUser(context.Background(), database.CreateUserParams{
 		ID:        uuid.New(),
 		CreatedAt: time.Now().UTC(),
 		UpdatedAt: time.Now().UTC(),
