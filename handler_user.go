@@ -55,3 +55,13 @@ func handlerRegister(s *state, cmd command) error {
 	log.Default().Printf("User with this data was created: %v", user)
 	return nil
 }
+
+func handlerReset(s *state, cmd command) error {
+	err := s.db.DeleteAllUsers(context.Background())
+
+	if err != nil {
+		log.Fatalf("Cannot reset db: %v", err)
+	}
+	fmt.Println("Database was successfully reset.")
+	return nil
+}
