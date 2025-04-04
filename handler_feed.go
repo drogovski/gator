@@ -19,16 +19,15 @@ func handlerAgg(s *state, cmd command) error {
 	if err != nil {
 		log.Fatalf("Encountered error when trying to fetch feed: %v", err)
 	}
-	fmt.Printf("%v", feed)
+	fmt.Printf("%v\n", feed)
 	return nil
 }
 
 func handlerAddFeed(s *state, cmd command) error {
 	if len(cmd.Args) != 2 {
-		log.Fatal("You have to provide feed name and URL as arguments")
+		log.Fatalf("usage: %s <name> <url>", cmd.Name)
 	}
-	currentUserName := s.cfg.CurrentUserName
-	currentUser, err := s.db.GetUser(context.Background(), currentUserName)
+	currentUser, err := s.db.GetUser(context.Background(), s.cfg.CurrentUserName)
 	if err != nil {
 		log.Fatalf("Error when getting current user: %v", err)
 	}
@@ -45,7 +44,7 @@ func handlerAddFeed(s *state, cmd command) error {
 	})
 
 	if err != nil {
-		log.Fatalf("Error when trying to create new feed: %v", feed)
+		log.Fatalf("Error when trying to create new feed: %v", err)
 	}
 
 	fmt.Printf("Created new feed:\n %v\n", feed)
