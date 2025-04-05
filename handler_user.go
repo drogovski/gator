@@ -18,7 +18,7 @@ func handlerLogin(s *state, cmd command) error {
 	username := cmd.Args[0]
 	user, err := s.db.GetUser(context.Background(), username)
 	if err != nil {
-		log.Fatalf("User does not exist: %v\n", err)
+		return fmt.Errorf("user does not exist: %v", err)
 	}
 
 	err = s.cfg.SetUser(user.Name)
@@ -42,12 +42,12 @@ func handlerRegister(s *state, cmd command) error {
 	})
 
 	if err != nil {
-		log.Fatalf("database error: %v", err)
+		return fmt.Errorf("database error: %v", err)
 	}
 
 	err = s.cfg.SetUser(user.Name)
 	if err != nil {
-		log.Fatalf("cannot set user: %v", err)
+		return fmt.Errorf("cannot set user: %v", err)
 	}
 	fmt.Printf("The user with name %s was created.\n", user.Name)
 	log.Default().Printf("User with this data was created: %v", user)
@@ -58,7 +58,7 @@ func handlerReset(s *state, cmd command) error {
 	err := s.db.DeleteAllUsers(context.Background())
 
 	if err != nil {
-		log.Fatalf("Cannot reset db: %v", err)
+		return fmt.Errorf("cannot reset db: %v", err)
 	}
 	fmt.Println("Database was successfully reset.")
 	return nil
@@ -67,7 +67,7 @@ func handlerReset(s *state, cmd command) error {
 func handlerUsers(s *state, cmd command) error {
 	users, err := s.db.GetUsers(context.Background())
 	if err != nil {
-		log.Fatalf("Couldn't get users from db: %v", users)
+		return fmt.Errorf("couldn't get users from db: %v", users)
 	}
 	printUsers(s, users)
 	return nil
