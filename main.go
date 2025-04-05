@@ -34,15 +34,16 @@ func main() {
 		registeredCommands: map[string]func(*state, command) error{},
 	}
 
-	cmds.register("login", handlerLogin)
-	cmds.register("register", handlerRegister)
-	cmds.register("reset", handlerReset)
-	cmds.register("users", handlerUsers)
-	cmds.register("agg", handlerAgg)
 	cmds.register("addfeed", middlewareLoggedIn(handlerAddFeed))
+	cmds.register("agg", handlerAgg)
 	cmds.register("feeds", handlerFeeds)
 	cmds.register("follow", middlewareLoggedIn(handlerFollow))
 	cmds.register("following", middlewareLoggedIn(handlerFollowing))
+	cmds.register("login", handlerLogin)
+	cmds.register("register", handlerRegister)
+	cmds.register("reset", handlerReset)
+	cmds.register("unfollow", middlewareLoggedIn(handlerUnfollow))
+	cmds.register("users", handlerUsers)
 
 	args := os.Args
 	if len(args) < 2 {
