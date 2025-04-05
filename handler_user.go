@@ -16,7 +16,9 @@ func handlerLogin(s *state, cmd command) error {
 		return errors.New("you have to provide username as argument")
 	}
 	username := cmd.Args[0]
-	user, err := s.db.GetUser(context.Background(), username)
+
+	q := database.New(s.db)
+	user, err := q.GetUser(context.Background(), username)
 	if err != nil {
 		return fmt.Errorf("user does not exist: %v", err)
 	}
@@ -34,7 +36,9 @@ func handlerRegister(s *state, cmd command) error {
 		return errors.New("you have to provide username as argument")
 	}
 	username := cmd.Args[0]
-	user, err := s.db.CreateUser(context.Background(), database.CreateUserParams{
+
+	q := database.New(s.db)
+	user, err := q.CreateUser(context.Background(), database.CreateUserParams{
 		ID:        uuid.New(),
 		CreatedAt: time.Now().UTC(),
 		UpdatedAt: time.Now().UTC(),
@@ -55,7 +59,8 @@ func handlerRegister(s *state, cmd command) error {
 }
 
 func handlerReset(s *state, cmd command) error {
-	err := s.db.DeleteAllUsers(context.Background())
+	q := database.New(s.db)
+	err := q.DeleteAllUsers(context.Background())
 
 	if err != nil {
 		return fmt.Errorf("cannot reset db: %v", err)
@@ -65,7 +70,8 @@ func handlerReset(s *state, cmd command) error {
 }
 
 func handlerUsers(s *state, cmd command) error {
-	users, err := s.db.GetUsers(context.Background())
+	q := database.New(s.db)
+	users, err := q.GetUsers(context.Background())
 	if err != nil {
 		return fmt.Errorf("couldn't get users from db: %v", users)
 	}

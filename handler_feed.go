@@ -26,7 +26,15 @@ func handlerAddFeed(s *state, cmd command) error {
 	if len(cmd.Args) != 2 {
 		return fmt.Errorf("usage: %s <name> <url>", cmd.Name)
 	}
-	currentUser, err := s.db.GetUser(context.Background(), s.cfg.CurrentUserName)
+
+	tx, err := s.db.Begin()
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	qtx := database.New(tx)
+	currentUser, err := qtx.GetUser(context.Background(), s.cfg.CurrentUserName)
 	if err != nil {
 		return fmt.Errorf("error when getting current user: %v", err)
 	}
@@ -34,16 +42,29 @@ func handlerAddFeed(s *state, cmd command) error {
 	feedName := cmd.Args[0]
 	url := cmd.Args[1]
 
-	feed, err := s.db.CreateFeed(context.Background(), database.CreateFeedParams{
+	feed, err := qtx.CreateFeed(context.Background(), database.CreateFeedParams{
 		Name:      feedName,
 		Url:       url,
 		UserID:    currentUser.ID,
 		CreatedAt: time.Now().UTC(),
 		UpdatedAt: time.Now().UTC(),
 	})
-
 	if err != nil {
 		return fmt.Errorf("error when trying to create new feed: %v", err)
+	}
+
+	_, err = qtx.CreateFeedFollow(context.Background(), database.CreateFeedFollowParams{
+		CreatedAt: time.Now().UTC(),
+		UpdatedAt: time.Now().UTC(),
+		UserID:    currentUser.ID,
+		FeedID:    feed.ID,
+	})
+	if err != nil {
+		return fmt.Errorf("couldn't create feed follow: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
 	fmt.Printf("Created new feed:\n %v\n", feed)
@@ -51,7 +72,8 @@ func handlerAddFeed(s *state, cmd command) error {
 }
 
 func handlerFeeds(s *state, cmd command) error {
-	feeds, err := s.db.GetFeeds(context.Background())
+	q := database.New(s.db)
+	feeds, err := q.GetFeeds(context.Background())
 	if err != nil {
 		return fmt.Errorf("couldn't get feeds from db: %v", err)
 	}
@@ -72,18 +94,19 @@ func handlerFollow(s *state, cmd command) error {
 	}
 
 	feedURL := cmd.Args[0]
-	feed, err := s.db.GetFeedByUrl(context.Background(), feedURL)
+	q := database.New(s.db)
+	feed, err := q.GetFeedByUrl(context.Background(), feedURL)
 
 	if err != nil {
 		return fmt.Errorf("couldn't get feed with given url: %w", err)
 	}
 
-	currentUser, err := s.db.GetUser(context.Background(), s.cfg.CurrentUserName)
+	currentUser, err := q.GetUser(context.Background(), s.cfg.CurrentUserName)
 	if err != nil {
 		return fmt.Errorf("couldn't get user with given url: %w", err)
 	}
 
-	feedFollow, err := s.db.CreateFeedFollow(context.Background(), database.CreateFeedFollowParams{
+	feedFollow, err := q.CreateFeedFollow(context.Background(), database.CreateFeedFollowParams{
 		CreatedAt: time.Now().UTC(),
 		UpdatedAt: time.Now().UTC(),
 		UserID:    currentUser.ID,
@@ -95,5 +118,20 @@ func handlerFollow(s *state, cmd command) error {
 	}
 
 	fmt.Printf("Created %s feed follow by %s.", feedFollow.FeedName, feedFollow.UserName)
+	return nil
+}
+
+func handlerFollowing(s *state, cmd command) error {
+	q := database.New(s.db)
+	feedFollows, err := q.GetFeedFollowsForUser(context.Background(), s.cfg.CurrentUserName)
+	if err != nil {
+		return fmt.Errorf("couldn't get following information for current user: %w", err)
+	}
+
+	fmt.Printf("Feeds followed by: %s\n", s.cfg.CurrentUserName)
+	fmt.Println("==========================================")
+	for _, feed := range feedFollows {
+		fmt.Printf(" * %s\n", feed.FeedName)
+	}
 	return nil
 }

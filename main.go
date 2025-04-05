@@ -6,12 +6,11 @@ import (
 	"os"
 
 	"github.com/drogovski/gator/internal/config"
-	"github.com/drogovski/gator/internal/database"
 	_ "github.com/lib/pq"
 )
 
 type state struct {
-	db  *database.Queries
+	db  *sql.DB
 	cfg *config.Config
 }
 
@@ -25,10 +24,9 @@ func main() {
 	if err != nil {
 		log.Fatalf("error creating connection to db: %v", err)
 	}
-	dbQueries := database.New(db)
 
 	programState := &state{
-		db:  dbQueries,
+		db:  db,
 		cfg: &cfg,
 	}
 
@@ -44,6 +42,7 @@ func main() {
 	cmds.register("addfeed", handlerAddFeed)
 	cmds.register("feeds", handlerFeeds)
 	cmds.register("follow", handlerFollow)
+	cmds.register("following", handlerFollowing)
 
 	args := os.Args
 	if len(args) < 2 {
