@@ -22,7 +22,7 @@ func handlerAgg(s *state, cmd command) error {
 	return nil
 }
 
-func handlerAddFeed(s *state, cmd command) error {
+func handlerAddFeed(s *state, cmd command, user database.User) error {
 	if len(cmd.Args) != 2 {
 		return fmt.Errorf("usage: %s <name> <url>", cmd.Name)
 	}
@@ -34,10 +34,6 @@ func handlerAddFeed(s *state, cmd command) error {
 	defer tx.Rollback()
 
 	qtx := database.New(tx)
-	currentUser, err := qtx.GetUser(context.Background(), s.cfg.CurrentUserName)
-	if err != nil {
-		return fmt.Errorf("error when getting current user: %v", err)
-	}
 
 	feedName := cmd.Args[0]
 	url := cmd.Args[1]
@@ -45,7 +41,7 @@ func handlerAddFeed(s *state, cmd command) error {
 	feed, err := qtx.CreateFeed(context.Background(), database.CreateFeedParams{
 		Name:      feedName,
 		Url:       url,
-		UserID:    currentUser.ID,
+		UserID:    user.ID,
 		CreatedAt: time.Now().UTC(),
 		UpdatedAt: time.Now().UTC(),
 	})
@@ -56,7 +52,7 @@ func handlerAddFeed(s *state, cmd command) error {
 	_, err = qtx.CreateFeedFollow(context.Background(), database.CreateFeedFollowParams{
 		CreatedAt: time.Now().UTC(),
 		UpdatedAt: time.Now().UTC(),
-		UserID:    currentUser.ID,
+		UserID:    user.ID,
 		FeedID:    feed.ID,
 	})
 	if err != nil {
@@ -88,7 +84,7 @@ func printFeeds(feeds []database.GetFeedsRow) {
 	}
 }
 
-func handlerFollow(s *state, cmd command) error {
+func handlerFollow(s *state, cmd command, user database.User) error {
 	if len(cmd.Args) != 1 {
 		return fmt.Errorf("usage: %s <feed_url>", cmd.Name)
 	}
@@ -101,15 +97,10 @@ func handlerFollow(s *state, cmd command) error {
 		return fmt.Errorf("couldn't get feed with given url: %w", err)
 	}
 
-	currentUser, err := q.GetUser(context.Background(), s.cfg.CurrentUserName)
-	if err != nil {
-		return fmt.Errorf("couldn't get user with given url: %w", err)
-	}
-
 	feedFollow, err := q.CreateFeedFollow(context.Background(), database.CreateFeedFollowParams{
 		CreatedAt: time.Now().UTC(),
 		UpdatedAt: time.Now().UTC(),
-		UserID:    currentUser.ID,
+		UserID:    user.ID,
 		FeedID:    feed.ID,
 	})
 
@@ -121,9 +112,9 @@ func handlerFollow(s *state, cmd command) error {
 	return nil
 }
 
-func handlerFollowing(s *state, cmd command) error {
+func handlerFollowing(s *state, cmd command, user database.User) error {
 	q := database.New(s.db)
-	feedFollows, err := q.GetFeedFollowsForUser(context.Background(), s.cfg.CurrentUserName)
+	feedFollows, err := q.GetFeedFollowsForUser(context.Background(), user.Name)
 	if err != nil {
 		return fmt.Errorf("couldn't get following information for current user: %w", err)
 	}
