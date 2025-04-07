@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"time"
 
@@ -9,17 +10,26 @@ import (
 	"github.com/drogovski/gator/internal/rss"
 )
 
-const (
-	feedURL = "https://www.wagslane.dev/index.xml"
-)
-
 func handlerAgg(s *state, cmd command) error {
-	feed, err := rss.FetchFeed(context.Background(), feedURL)
-	if err != nil {
-		return fmt.Errorf("encountered error when trying to fetch feed: %v", err)
+	if len(cmd.Args) != 1 {
+		return fmt.Errorf("usage: %s <time_between_reqs>", cmd.Name)
 	}
-	fmt.Printf("%v\n", feed)
-	return nil
+
+	time_between_reqs, err := time.ParseDuration(cmd.Args[0])
+	if err != nil {
+		return fmt.Errorf("couldn't parse the duration from provided argument: %w",
+			err)
+	}
+
+	fmt.Printf("Collecting feeds every %v\n", time_between_reqs)
+
+	ticker := time.NewTicker(time_between_reqs)
+	for ; ; <-ticker.C {
+		err = scrapeFeeds(s)
+		if err != nil {
+			return err
+		}
+	}
 }
 
 func handlerAddFeed(s *state, cmd command, user database.User) error {
@@ -81,5 +91,45 @@ func printFeeds(feeds []database.GetFeedsRow) {
 	fmt.Println("Your Feeds:")
 	for _, feed := range feeds {
 		fmt.Printf(" * %s | url: %s | author: %s\n", feed.Name, feed.Url, feed.Name_2)
+	}
+}
+
+func scrapeFeeds(s *state) error {
+	q := database.New(s.db)
+	feed, err := q.GetNextFeedToFetch(context.Background())
+	if err != nil {
+		return fmt.Errorf("couldn't get next feed to fetch: %w", err)
+	}
+
+	fetchedFeed, err := rss.FetchFeed(context.Background(), feed.Url)
+	if err != nil {
+		return fmt.Errorf("encountered error when trying to fetch feed: %w", err)
+	}
+
+	err = q.MarkFeedFetched(context.Background(), database.MarkFeedFetchedParams{
+		ID: feed.ID,
+		LastFetchedAt: sql.NullTime{
+			Time:  time.Now().UTC(),
+			Valid: true,
+		},
+	})
+
+	if err != nil {
+		return fmt.Errorf("couldn't update the last_fatched_at time: %w", err)
+	}
+
+	printFetchedItems(fetchedFeed)
+	return nil
+}
+
+func printFetchedItems(fetchedFeed *rss.RSSFeed) {
+	if len(fetchedFeed.Channel.Items) == 0 {
+		fmt.Println("No new items where fetched.")
+		return
+	}
+
+	fmt.Printf("Following items from %s where fetched:", fetchedFeed.Channel.Title)
+	for _, item := range fetchedFeed.Channel.Items {
+		fmt.Printf(" * %s\n", item.Title)
 	}
 }
