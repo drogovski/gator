@@ -8,6 +8,7 @@ import (
 
 	"github.com/drogovski/gator/internal/database"
 	"github.com/drogovski/gator/internal/rss"
+	"github.com/google/uuid"
 )
 
 func handlerAgg(s *state, cmd command) error {
@@ -118,18 +119,38 @@ func scrapeFeeds(s *state) error {
 		return fmt.Errorf("couldn't update the last_fatched_at time: %w", err)
 	}
 
-	printFetchedItems(fetchedFeed)
+	savePostsToDB(s, feed.ID, fetchedFeed)
 	return nil
 }
 
-func printFetchedItems(fetchedFeed *rss.RSSFeed) {
+func savePostsToDB(s *state, feedId int32, fetchedFeed *rss.RSSFeed) {
 	if len(fetchedFeed.Channel.Items) == 0 {
-		fmt.Println("No new items where fetched.")
+		fmt.Println("No new posts where fetched.")
 		return
 	}
 
-	fmt.Printf("Following items from %s where fetched:", fetchedFeed.Channel.Title)
+	fmt.Printf("Saving %d posts to database...", len(fetchedFeed.Channel.Items))
+
+	q := database.New(s.db)
 	for _, item := range fetchedFeed.Channel.Items {
-		fmt.Printf(" * %s\n", item.Title)
+		pubDate, err := time.Parse(time.RFC1123Z, item.PubDate)
+		if err != nil {
+			fmt.Printf("couldn't parse the pubdate: %v\n", err)
+		}
+
+		_, err = q.CreatePost(context.Background(), database.CreatePostParams{
+			ID:          uuid.New(),
+			CreatedAt:   time.Now().UTC(),
+			UpdatedAt:   time.Now().UTC(),
+			Title:       item.Title,
+			Url:         item.Link,
+			Description: item.Description,
+			PublishedAt: pubDate,
+			FeedID:      feedId,
+		})
+
+		if err != nil {
+			fmt.Printf("error when trying to save post: %v\n", err)
+		}
 	}
 }
